@@ -8,6 +8,7 @@
 <p align="center">
   <a target="_blank" href="./README.md">English</a> 
   | <a target="_blank" href="./README_CN.md">简体中文</a> 
+  | <a target="_blank" href="./README_PT.md">Português</a>
   | <a target="_blank" href="https://suno.gcui.ai">Demo</a> 
   | <a target="_blank" href="https://suno.gcui.ai/docs">Docs</a> 
   | <a target="_blank" href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgcui-art%2Fsuno-api&env=SUNO_COOKIE&project-name=suno-api&repository-name=suno-api">Deploy with Vercel</a> 
@@ -288,15 +289,66 @@ You can integrate Suno AI as a tool/plugin/action into your AI agent.
 
 ### Integration with GPTs
 
-[coming soon...]
+You can integrate this Suno API with OpenAI's GPTs by defining custom Actions.
+1.  When configuring your GPT, select "Create new action".
+2.  Choose "Import OpenAPI schema".
+3.  Provide the URL to the `public/swagger-suno-api.json` file from your deployed Suno API instance (e.g., `https://your-deployed-domain.vercel.app/swagger-suno-api.json`). Alternatively, you can copy and paste the content of the `swagger-suno-api.json` file.
+4.  The available API endpoints will be automatically detected. Configure them as needed within the GPT editor.
+5.  You will also need to configure authentication. This API uses a cookie (`SUNO_COOKIE`) for authentication, which needs to be sent as a header. You might need to set up an authentication scheme (like API Key) in the GPT Actions settings, where the "API Key" is actually your Suno session cookie. Instruct users to provide their cookie this way.
 
 ### Integration with Coze
 
-[coming soon...]
+To integrate the Suno API with Coze (or other similar bot platforms):
+1.  These platforms usually allow adding custom tools or plugins by specifying API endpoints.
+2.  You can define a new plugin and manually add each API endpoint provided by this Suno API instance (e.g., `/api/generate`, `/api/custom_generate`, etc.).
+3.  Refer to your Coze documentation for specifics on how to add request headers for authentication. You will need to pass the `SUNO_COOKIE` as a header.
+4.  Alternatively, if Coze supports importing OpenAPI schemas, you may be able to use the `public/swagger-suno-api.json` file.
 
 ### Integration with LangChain
 
-[coming soon...]
+To use this Suno API with LangChain, you would typically create a custom `Tool`.
+1.  Define a new class that inherits from LangChain's `BaseTool`.
+2.  In this class, implement the `_run` method (and optionally `_arun` for asynchronous operations).
+3.  This method will make HTTP requests to the desired Suno API endpoints (e.g., using a library like `requests` or `aiohttp`).
+4.  Ensure you include the `SUNO_COOKIE` in the request headers for authentication.
+5.  You can then instantiate this tool and include it in your LangChain agent's tool list.
+
+Example concept:
+```python
+from langchain_core.tools import BaseTool
+import requests
+import os
+
+class SunoMusicTool(BaseTool):
+    name = "SunoMusicGenerator"
+    description = "Generates music using Suno API based on a prompt, or performs other music-related tasks."
+    # Define args schema if you want structured input
+
+    def _run(self, prompt: str, mode: str = "generate", **kwargs): # Add other params as needed
+        base_url = os.environ.get("SUNO_API_BASE_URL")
+        suno_cookie = os.environ.get("SUNO_COOKIE")
+        headers = {"Cookie": f"COOKIE={suno_cookie}"} # Adjust if your deployment expects a different cookie header name
+
+        if mode == "generate":
+            response = requests.post(f"{base_url}/api/generate", json={"prompt": prompt, **kwargs}, headers=headers)
+        elif mode == "custom_generate":
+            response = requests.post(f"{base_url}/api/custom_generate", json={"prompt": prompt, **kwargs}, headers=headers)
+        # Add other modes for other API endpoints like get, extend_audio etc.
+        else:
+            return "Invalid mode."
+
+        response.raise_for_status() # Raise an exception for bad status codes
+        return response.json()
+
+    async def _arun(self, query: str):
+        # Implement asynchronous version if needed
+        raise NotImplementedError("SunoMusicTool does not support async yet")
+
+# Usage:
+# tool = SunoMusicTool()
+# result = tool.run(prompt="Epic space battle music", make_instrumental=True, wait_audio=True)
+```
+This is a simplified example. You'd need to handle API base URLs, cookie management (perhaps via environment variables or configuration), and error handling more robustly. Refer to the `API Integration Code Example` section for more details on payload structures.
 
 ## Contributing
 

@@ -8,6 +8,7 @@
 <p align="center">
   <a target="_blank" href="./README.md">English</a> 
   | <a target="_blank" href="./README_CN.md">简体中文</a> 
+  | <a target="_blank" href="./README_PT.md">Português</a>
   | <a target="_blank" href="https://suno.gcui.ai">Demo</a> 
   | <a target="_blank" href="https://suno.gcui.ai/docs">文档</a> 
   | <a target="_blank" href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgcui-art%2Fsuno-api&env=SUNO_COOKIE&project-name=suno-api&repository-name=suno-api">一键部署到 Vercel</a> 
@@ -266,15 +267,66 @@ main();
 
 ### 集成到 GPTs
 
-[coming soon...]
+您可以通定义自定义操作（Actions）将此 Suno API 与 OpenAI 的 GPTs 集成。
+1.  在配置您的 GPT 时，选择“创建新操作” (Create new action)。
+2.  选择“导入 OpenAPI schema” (Import OpenAPI schema)。
+3.  提供指向您部署的 Suno API 实例中的 `public/swagger-suno-api.json` 文件的 URL (例如, `https://your-deployed-domain.vercel.app/swagger-suno-api.json`)。或者，您可以复制并粘贴 `swagger-suno-api.json` 文件的内容。
+4.  可用的 API 端点将被自动检测到。在 GPT 编辑器中根据需要配置它们。
+5.  您还需要配置身份验证。此 API 使用 cookie (`SUNO_COOKIE`) 进行身份验证，需要作为标头发送。您可能需要在 GPT Actions 设置中设置身份验证方案（如 API Key），其中 "API Key" 实际上是您的 Suno 会话 cookie。指导用户以这种方式提供他们的 cookie。
 
-### 集成到 coze
+### 集成到 Coze
 
-[coming soon...]
+要将 Suno API 与 Coze (或其他类似的机器人平台) 集成：
+1.  这些平台通常允许通过指定 API 端点来添加自定义工具或插件。
+2.  您可以定义一个新插件并手动添加此 Suno API 实例提供的每个 API 端点 (例如, `/api/generate`, `/api/custom_generate` 等)。
+3.  有关如何添加用于身份验证的请求标头的具体信息，请参阅您的 Coze 文档。您需要将 `SUNO_COOKIE` 作为标头传递。
+4.  或者，如果 Coze 支持导入 OpenAPI schema，您或许可以使用 `public/swagger-suno-api.json` 文件。
 
 ### 集成到 LangChain
 
-[coming soon...]
+要将此 Suno API 与 LangChain 一起使用，您通常会创建一个自定义 `Tool`。
+1.  定义一个继承自 LangChain 的 `BaseTool` 的新类。
+2.  在此类中，实现 `_run` 方法 (以及可选的 `_arun` 用于异步操作)。
+3.  此方法将向所需的 Suno API 端点发出 HTTP 请求 (例如, 使用像 `requests` 或 `aiohttp` 这样的库)。
+4.  确保在请求标头中包含 `SUNO_COOKIE` 以进行身份验证。
+5.  然后，您可以实例化此工具并将其包含在 LangChain agent 的工具列表中。
+
+概念示例:
+```python
+from langchain_core.tools import BaseTool
+import requests
+import os
+
+class SunoMusicTool(BaseTool):
+    name = "SunoMusicGenerator"
+    description = "根据提示使用 Suno API 生成音乐，或执行其他与音乐相关的任务。"
+    # 如果需要结构化输入，请定义 args_schema
+
+    def _run(self, prompt: str, mode: str = "generate", **kwargs): # 根据需要添加其他参数
+        base_url = os.environ.get("SUNO_API_BASE_URL")
+        suno_cookie = os.environ.get("SUNO_COOKIE")
+        headers = {"Cookie": f"COOKIE={suno_cookie}"} # 如果您的部署期望不同的 cookie 标头名称，请进行调整
+
+        if mode == "generate":
+            response = requests.post(f"{base_url}/api/generate", json={"prompt": prompt, **kwargs}, headers=headers)
+        elif mode == "custom_generate":
+            response = requests.post(f"{base_url}/api/custom_generate", json={"prompt": prompt, **kwargs}, headers=headers)
+        # 为其他 API 端点（如 get, extend_audio 等）添加其他模式
+        else:
+            return "无效模式。"
+
+        response.raise_for_status() # 对错误的状态码抛出异常
+        return response.json()
+
+    async def _arun(self, query: str):
+        # 如果需要，实现异步版本
+        raise NotImplementedError("SunoMusicTool 尚不支持异步")
+
+# 用法:
+# tool = SunoMusicTool()
+# result = tool.run(prompt="史诗般的太空战斗音乐", make_instrumental=True, wait_audio=True)
+```
+这是一个简化示例。您需要更稳健地处理 API 基础 URL、cookie 管理 (可能通过环境变量或配置) 和错误处理。有关有效负载结构的更多详细信息，请参阅 `API 集成代码示例` 部分。
 
 ## 贡献指南
 
